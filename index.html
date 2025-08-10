@@ -1,1 +1,1041 @@
-test
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NimaToken Query Tool - BNB Chain</title>
+    <link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Comic Neue', cursive;
+            margin: 0;
+            padding: 20px;
+            background: url('https://www.transparenttextures.com/patterns/diagonal-striped-brick.png') repeat, linear-gradient(135deg, #E3F2FD 0%, #90CAF9 100%);
+            color: #1A237E;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            border: 3px solid #1976D2;
+        }
+        h2 {
+            color: #1976D2;
+            text-align: center;
+            font-size: 2.2em;
+            margin-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        p {
+            text-align: center;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+            color: #1A237E;
+        }
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        input[type="text"] {
+            flex: 1;
+            min-width: 250px;
+            padding: 12px;
+            font-size: 1em;
+            border: 2px solid #90CAF9;
+            border-radius: 8px;
+            background: #E3F2FD;
+            color: #1A237E;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            background: #1976D2;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s, transform 0.1s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        button:hover {
+            background: #1565C0;
+            transform: scale(1.05);
+        }
+        button:disabled {
+            background: #B0BEC5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #result {
+            background: #E3F2FD;
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px dashed #90CAF9;
+            font-size: 1em;
+            line-height: 1.6;
+            color: #1A237E;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+        }
+        .section h3 {
+            color: #1976D2;
+            font-size: 1.4em;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #90CAF9;
+            padding-bottom: 5px;
+        }
+        .section p, .section ul {
+            margin: 5px 0;
+        }
+        .section ul {
+            padding-left: 20px;
+        }
+        .section ul li {
+            margin-bottom: 8px;
+        }
+        .error {
+            color: #D32F2F;
+            font-weight: bold;
+        }
+        #countdown {
+            font-weight: bold;
+            color: #1976D2;
+            margin-top: 10px;
+        }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 15px;
+            }
+            h2 {
+                font-size: 1.8em;
+            }
+            p {
+                font-size: 1em;
+            }
+            input[type="text"] {
+                min-width: 100%;
+                font-size: 0.9em;
+            }
+            button {
+                width: 100%;
+                font-size: 0.9em;
+            }
+            #result {
+                font-size: 0.9em;
+                padding: 15px;
+            }
+            .section h3 {
+                font-size: 1.2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🌟 NimaToken Query Tool (BNB Chain) 🌟</h2>
+        <p>Enter a wallet address to query NimaToken details on BNB Chain. An experiment by JACE Lab.</p>
+        <div class="input-group">
+            <input type="text" id="walletAddress" placeholder="Enter wallet address, e.g., 0x...">
+            <button onclick="queryWallet()">Query</button>
+        </div>
+        <div id="result"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.10.0/dist/web3.min.js"></script>
+    <script>
+        // BNB Chain Network Details
+        const networkDetails = {
+            name: "BNB Chain",
+            rpcUrls: [
+                "https://bsc-dataseed1.binance.org",
+                "https://bsc-dataseed2.binance.org",
+                "https://bsc-dataseed3.binance.org",
+                "https://bsc-dataseed4.binance.org"
+            ],
+            chainId: 56,
+            currencySymbol: "BNB",
+            blockExplorer: "https://bscscan.com"
+        };
+
+        // Contract Details
+        const rawContractAddress = "0x146b2AE41b06CF83C1a2f0b0a3883DaB370c378e";
+        const CATCH_COOLDOWN = 72000; // 72,000 seconds (20 hours)
+        let contractAddress;
+
+        const contractAbi = [
+            {
+                "inputs": [],
+                "stateMutability": "nonpayable",
+                "type": "constructor"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Approval",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Burned",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "catcher",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Caught",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [],
+                "name": "GameStarted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [],
+                "name": "GameStopped",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Minted",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "previousOwner",
+                        "type": "address"
+                    }
+                ],
+                "name": "OwnershipRenounced",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "uint256",
+                        "name": "value",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "Transfer",
+                "type": "event"
+            },
+            {
+                "anonymous": false,
+                "inputs": [
+                    {
+                        "indexed": true,
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    },
+                    {
+                        "indexed": false,
+                        "internalType": "bool",
+                        "name": "added",
+                        "type": "bool"
+                    }
+                ],
+                "name": "WhitelistUpdated",
+                "type": "event"
+            },
+            {
+                "inputs": [],
+                "name": "CATCH_COOLDOWN",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "CATCH_COST",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "MAX_MINTS",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "MAX_SUPPLY",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "MINT_AMOUNT",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    }
+                ],
+                "name": "addToWhitelist",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "owner",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    }
+                ],
+                "name": "allowance",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "approve",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "account",
+                        "type": "address"
+                    }
+                ],
+                "name": "balanceOf",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "decimals",
+                "outputs": [
+                    {
+                        "internalType": "uint8",
+                        "name": "",
+                        "type": "uint8"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "subtractedValue",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "decreaseAllowance",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "page",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "pageSize",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "getCatchRecords",
+                "outputs": [
+                    {
+                        "components": [
+                            {
+                                "internalType": "address",
+                                "name": "catcher",
+                                "type": "address"
+                            },
+                            {
+                                "internalType": "uint256",
+                                "name": "amount",
+                                "type": "uint256"
+                            },
+                            {
+                                "internalType": "uint256",
+                                "name": "timestamp",
+                                "type": "uint256"
+                            }
+                        ],
+                        "internalType": "struct NimaToken.CatchRecord[]",
+                        "name": "",
+                        "type": "tuple[]"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    }
+                ],
+                "name": "getCatchRecordsCount",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "hasMinted",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "spender",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "addedValue",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "increaseAllowance",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "isGameActive",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "lastCatchTime",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "mint",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "mintCount",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "name",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "owner",
+                "outputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "target",
+                        "type": "address"
+                    }
+                ],
+                "name": "removeFromWhitelist",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "renounceOwnership",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "startGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "stopGame",
+                "outputs": [],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "symbol",
+                "outputs": [
+                    {
+                        "internalType": "string",
+                        "name": "",
+                        "type": "string"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [],
+                "name": "totalSupply",
+                "outputs": [
+                    {
+                        "internalType": "uint256",
+                        "name": "",
+                        "type": "uint256"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "transfer",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "from",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "address",
+                        "name": "to",
+                        "type": "address"
+                    },
+                    {
+                        "internalType": "uint256",
+                        "name": "amount",
+                        "type": "uint256"
+                    }
+                ],
+                "name": "transferFrom",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "nonpayable",
+                "type": "function"
+            },
+            {
+                "inputs": [
+                    {
+                        "internalType": "address",
+                        "name": "",
+                        "type": "address"
+                    }
+                ],
+                "name": "whitelist",
+                "outputs": [
+                    {
+                        "internalType": "bool",
+                        "name": "",
+                        "type": "bool"
+                    }
+                ],
+                "stateMutability": "view",
+                "type": "function"
+            }
+        ];
+
+        // Initialize Web3 and Contract with better error handling
+        let web3;
+        let contract;
+        let activeRpcUrl;
+        let countdownInterval;
+        async function initializeWeb3AndContract() {
+            try {
+                // Check if Web3 is loaded
+                if (typeof Web3 === "undefined") {
+                    throw new Error("Web3.js library failed to load. Please ensure the script is loaded correctly.");
+                }
+
+                // Convert the raw contract address to its checksummed form
+                try {
+                    contractAddress = Web3.utils.toChecksumAddress(rawContractAddress);
+                } catch (error) {
+                    throw new Error(`Invalid contract address: ${rawContractAddress}. ${error.message}`);
+                }
+
+                // Try each RPC URL until one works
+                for (let i = 0; i < networkDetails.rpcUrls.length; i++) {
+                    activeRpcUrl = networkDetails.rpcUrls[i];
+                    try {
+                        web3 = new Web3(activeRpcUrl);
+                        const chainId = await web3.eth.getChainId();
+                        if (chainId === networkDetails.chainId) {
+                            break; // Success, use this RPC
+                        } else {
+                            throw new Error(`RPC ${activeRpcUrl} is not connected to BNB Chain (Chain ID ${networkDetails.chainId}). Got Chain ID: ${chainId}`);
+                        }
+                    } catch (error) {
+                        if (i === networkDetails.rpcUrls.length - 1) {
+                            throw new Error(`All RPCs failed. Last error: ${error.message}`);
+                        }
+                        continue; // Try the next RPC
+                    }
+                }
+
+                // Initialize the contract
+                contract = new web3.eth.Contract(contractAbi, contractAddress);
+
+                // Test if the contract is accessible by calling a simple method
+                const contractName = await contract.methods.name().call();
+                if (contractName !== "Nima") {
+                    throw new Error(`Contract at ${contractAddress} does not match expected name "Nima". Got: ${contractName}`);
+                }
+
+                return true;
+            } catch (error) {
+                document.getElementById("result").innerHTML = `<div class="error">Initialization Failed: ${error.message}</div><p>Please verify the contract address and RPC URLs:<br>${networkDetails.rpcUrls.join("<br>")}<br>Check the contract on BscScan: <a href="${networkDetails.blockExplorer}/address/${contractAddress}" target="_blank">${contractAddress}</a></p>`;
+                return false;
+            }
+        }
+
+        // Call initialization on page load
+        window.onload = async () => {
+            const initialized = await initializeWeb3AndContract();
+            if (!initialized) {
+                document.querySelector("button").disabled = true; // Disable query button if initialization fails
+            }
+        };
+
+        // Function to format the countdown time
+        function formatCountdown(seconds) {
+            if (seconds <= 0) return "Ready to catch! 🌟";
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${hours} hours, ${minutes} minutes, ${secs} seconds remaining`;
+        }
+
+        // Function to start the countdown timer
+        function startCountdown(lastCatchTimestamp) {
+            // Clear any existing interval
+            if (countdownInterval) {
+                clearInterval(countdownInterval);
+            }
+
+            // If lastCatchTimestamp is 0, the wallet has never caught
+            if (lastCatchTimestamp == 0) {
+                document.getElementById("countdown").innerText = "Ready to catch! 🌟";
+                return;
+            }
+
+            // Calculate the time when the next catch is allowed
+            const nextCatchTime = (parseInt(lastCatchTimestamp) + CATCH_COOLDOWN) * 1000; // Convert to milliseconds
+            const now = Date.now();
+
+            // If the cooldown has already passed, show "Ready to catch!"
+            if (now >= nextCatchTime) {
+                document.getElementById("countdown").innerText = "Ready to catch! 🌟";
+                return;
+            }
+
+            // Update the countdown every second
+            countdownInterval = setInterval(() => {
+                const currentTime = Date.now();
+                const secondsRemaining = Math.max(0, Math.floor((nextCatchTime - currentTime) / 1000));
+                document.getElementById("countdown").innerText = formatCountdown(secondsRemaining);
+
+                // Stop the interval when the countdown reaches 0
+                if (secondsRemaining <= 0) {
+                    clearInterval(countdownInterval);
+                    document.getElementById("countdown").innerText = "Ready to catch! 🌟";
+                }
+            }, 1000);
+        }
+
+        async function queryWallet() {
+            const address = document.getElementById("walletAddress").value.trim();
+            if (!web3.utils.isAddress(address)) {
+                document.getElementById("result").innerHTML = '<div class="error">Please enter a valid wallet address!</div>';
+                return;
+            }
+
+            // Double-check if contract is initialized
+            if (!contract || !contract.methods) {
+                document.getElementById("result").innerHTML = '<div class="error">Contract is not initialized. Please check the initialization error above.</div>';
+                return;
+            }
+
+            document.getElementById("result").innerHTML = '<p>Querying, please wait...</p>';
+
+            try {
+                // Query all public information
+                const balance = await contract.methods.balanceOf(address).call();
+                const hasMinted = await contract.methods.hasMinted(address).call();
+                const lastCatch = await contract.methods.lastCatchTime(address).call();
+                const isWhitelisted = await contract.methods.whitelist(address).call();
+                const catchRecordsCount = await contract.methods.getCatchRecordsCount(address).call();
+                const isGameActive = await contract.methods.isGameActive().call();
+                const totalSupply = await contract.methods.totalSupply().call();
+                const mintCount = await contract.methods.mintCount().call();
+
+                // Query catch records (pagination, 10 per page)
+                let catchRecordsHtml = '';
+                if (catchRecordsCount > 0) {
+                    const pageSize = 10;
+                    const records = await contract.methods.getCatchRecords(address, 0, pageSize).call();
+                    catchRecordsHtml = '<ul>';
+                    records.forEach((record, index) => {
+                        const amountEther = web3.utils.fromWei(record.amount, "ether");
+                        catchRecordsHtml += `<li>${index + 1}. Caught by ${record.catcher}, Amount: ${amountEther} NIMA</li>`;
+                    });
+                    catchRecordsHtml += '</ul>';
+                    if (catchRecordsCount > pageSize) {
+                        catchRecordsHtml += `<p>(Total ${catchRecordsCount} records, showing first ${pageSize} only)</p>`;
+                    }
+                } else {
+                    catchRecordsHtml = '<p>No catch records</p>';
+                }
+
+                // Format the result
+                const balanceEther = web3.utils.fromWei(balance, "ether");
+                const totalSupplyEther = web3.utils.fromWei(totalSupply, "ether");
+                const resultHtml = `
+                    <div class="section">
+                        <h3>Network Information</h3>
+                        <p><strong>Network:</strong> ${networkDetails.name}</p>
+                        <p><strong>Chain ID:</strong> ${networkDetails.chainId}</p>
+                        <p><strong>Currency:</strong> ${networkDetails.currencySymbol}</p>
+                        <p><strong>Block Explorer:</strong> <a href="${networkDetails.blockExplorer}" target="_blank">${networkDetails.blockExplorer}</a></p>
+                        <p><strong>Contract Address:</strong> <a href="${networkDetails.blockExplorer}/address/${contractAddress}" target="_blank">${contractAddress}</a></p>
+                        <p><strong>Active RPC:</strong> ${activeRpcUrl}</p>
+                    </div>
+                    <div class="section">
+                        <h3>Wallet Information</h3>
+                        <p><strong>Wallet Address:</strong> ${address}</p>
+                        <p><strong>NIMA Balance:</strong> ${balanceEther} NIMA</p>
+                        <p><strong>Has Minted:</strong> ${hasMinted ? "Yes" : "No"}</p>
+                        <p><strong>Whitelisted:</strong> ${isWhitelisted ? "Yes" : "No"}</p>
+                        <p><strong>Time Until Next Catch:</strong> <span id="countdown"></span></p>
+                        <p><strong>Total Catch Records:</strong> ${catchRecordsCount}</p>
+                    </div>
+                    <div class="section">
+                        <h3>Catch Records</h3>
+                        ${catchRecordsHtml}
+                    </div>
+                    <div class="section">
+                        <h3>Contract Status</h3>
+                        <p><strong>Game Active:</strong> ${isGameActive ? "Yes" : "No"}</p>
+                        <p><strong>Total Supply:</strong> ${totalSupplyEther} NIMA</p>
+                        <p><strong>Mint Count:</strong> ${mintCount} / 1000</p>
+                    </div>
+                `;
+
+                document.getElementById("result").innerHTML = resultHtml;
+
+                // Start the countdown timer
+                startCountdown(lastCatch);
+            } catch (error) {
+                document.getElementById("result").innerHTML = `<div class="error">Query Failed: ${error.message}</div><p>Please ensure the contract is deployed and the RPC is accessible.</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
